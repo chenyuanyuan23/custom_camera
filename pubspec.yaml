@@ -1,0 +1,27 @@
+name: custom_camera
+description: A Flutter plugin for custom camera with photo capture and video recording.
+version: 0.0.1
+homepage: https://github.com/chenyuanyuan23/custom_camera
+
+environment:
+  sdk: '>=2.18.0 <3.0.0'
+  flutter: ">=2.5.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: 2.1.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.custom.custom_camera
+        pluginClass: CustomCameraPlugin
+      ios:
+        pluginClass: CustomCameraPlugin
