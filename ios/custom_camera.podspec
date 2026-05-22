@@ -13,10 +13,11 @@ A new Flutter project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { '' => '' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
-  s.resources = ['Assets/Assets.xcassets']
+  s.source_files = 'custom_camera/Sources/custom_camera_internal/**/*.{h,m}', 'custom_camera/Sources/custom_camera/**/*.swift'
+  s.public_header_files = 'custom_camera/Sources/custom_camera_internal/include/*.h'
+  s.resources = ['custom_camera/Sources/custom_camera_internal/Resources/Assets.xcassets']
   s.dependency 'Flutter'
-  s.platform = :ios, '9.0'
+  s.platform = :ios, '12.0'
 
   # Flutter.framework does not contain a i386 slice.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }

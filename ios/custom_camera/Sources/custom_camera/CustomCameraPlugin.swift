@@ -1,13 +1,19 @@
 import Flutter
 import UIKit
 import AVFoundation
+#if SWIFT_PACKAGE
+// SPM: 拆 OC target，需要显式 import
+import custom_camera_internal
+#endif
+// CocoaPods: OC 头由 podspec 单 target 的 umbrella header 自动透出，Swift 直接可见
 
 //UIImagePickerControllerDelegate, UINavigationControllerDelegate
-public class SwiftCustomCameraPlugin: NSObject, FlutterPlugin {
-    
+@objc(CustomCameraPlugin)
+public class CustomCameraPlugin: NSObject, FlutterPlugin {
+
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "custom_camera", binaryMessenger: registrar.messenger())
-        let instance = SwiftCustomCameraPlugin()
+        let instance = CustomCameraPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
     
