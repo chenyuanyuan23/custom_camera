@@ -93,6 +93,14 @@ static NSBundle *SLCameraResourceBundle(void) {
 - (BOOL)shouldAutorotate {
     return NO;
 }
+// 相机 UI 按竖屏布局，强制锁定竖屏：设备横屏时 present 也会被 iOS 旋到竖屏，避免横屏跑版。
+// 切换镜头图标仍按设备朝向通过 KVO 旋转，不受影响。
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskPortrait;
+}
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    return UIInterfaceOrientationPortrait;
+}
 - (void)dealloc {
     _avCaptureTool.delegate = nil;
     _avCaptureTool = nil;
