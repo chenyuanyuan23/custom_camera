@@ -5,6 +5,15 @@
 #import "SLAvCaptureFlashBar.h"
 #import "SLShotViewController.h"
 
+// 兼容 SPM / CocoaPods 两种集成方式获取图标资源所在 bundle（详见 SLShotViewController.m）
+static NSBundle *SLCameraFlashResourceBundle(void) {
+#if SWIFT_PACKAGE
+    return SWIFTPM_MODULE_BUNDLE;
+#else
+    return [NSBundle bundleForClass:[SLShotViewController class]];
+#endif
+}
+
 @interface SLAvCaptureFlashBar ()
 
 @property (strong, nonatomic) UIStackView *stackView;
@@ -57,7 +66,7 @@
         }
         [self addSubview:self.separatorView];
         self.flashButton.tag = type;
-        NSBundle *bundle = [NSBundle bundleForClass:[SLShotViewController class]];
+        NSBundle *bundle = SLCameraFlashResourceBundle();
         switch (type) {
             case 0:
                 [self.flashButton setImage:[UIImage imageNamed:@"flash_off" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
@@ -78,7 +87,7 @@
     UIButton *button = [UIButton buttonWithType:UIButtonTypeCustom];
     button.frame = CGRectMake(0, 0, 28, 24);
     button.imageView.contentMode = UIViewContentModeScaleAspectFit;
-    NSBundle *bundle = [NSBundle bundleForClass:[SLShotViewController class]];
+    NSBundle *bundle = SLCameraFlashResourceBundle();
     switch (type) {
         case 0:
             button.tag = 0;
@@ -100,7 +109,7 @@
 - (void)onButtonClick:(UIButton *)sender {
     self.hidden = YES;
     self.onChooseFlashCompleted(sender.tag);
-    NSBundle *bundle = [NSBundle bundleForClass:[SLShotViewController class]];
+    NSBundle *bundle = SLCameraFlashResourceBundle();
     switch (sender.tag) {
         case 0:
             [self.flashButton setImage:[UIImage imageNamed:@"flash_off" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];

@@ -17,6 +17,17 @@
 
 #define KMaxDurationOfVideo  30.0 //录制最大时长 s
 
+// 兼容 SPM / CocoaPods 两种集成方式获取图标资源所在 bundle：
+// - SwiftPM：资源经 .process 打进嵌套的 *_custom_camera_internal.bundle，需用 SWIFTPM_MODULE_BUNDLE
+// - CocoaPods：s.resources 直接拷进主 App bundle，类所在 bundle 即可
+static NSBundle *SLCameraResourceBundle(void) {
+#if SWIFT_PACKAGE
+    return SWIFTPM_MODULE_BUNDLE;
+#else
+    return [NSBundle bundleForClass:[SLShotViewController class]];
+#endif
+}
+
 @interface SLShotViewController ()<SLAvCaptureToolDelegate>
 {
     dispatch_source_t _gcdTimer; //计时器
@@ -156,7 +167,7 @@
         _backBtn = [[UIButton alloc] init];
         _backBtn.frame = CGRectMake(0, 0, 48, 48);
         _backBtn.center = CGPointMake((self.view.sl_width/2 - 104/2.0)/2.0, self.view.sl_height - 90);
-        NSBundle *bundle = [NSBundle bundleForClass:self.class];
+        NSBundle *bundle = SLCameraResourceBundle();
         [_backBtn setImage:[UIImage imageNamed:@"ic_close" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
         [_backBtn addTarget:self action:@selector(backBtn:) forControlEvents:UIControlEventTouchUpInside];
     }
@@ -210,7 +221,7 @@
         _switchCameraBtn = [[UIButton alloc] init];
         _switchCameraBtn.frame = CGRectMake(0, 0, 48, 48);
         _switchCameraBtn.center = CGPointMake((self.view.sl_width/2 + 104/2.0) + ((self.view.sl_width/2 - 104/2.0) / 2), self.view.sl_height - 90);
-        NSBundle *bundle = [NSBundle bundleForClass:self.class];
+        NSBundle *bundle = SLCameraResourceBundle();
         [_switchCameraBtn setImage:[UIImage imageNamed:@"switch_camera" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
         [_switchCameraBtn addTarget:self action:@selector(switchCameraClicked:) forControlEvents:UIControlEventTouchUpInside];
     }
@@ -315,7 +326,7 @@
         _flashButton = [UIButton buttonWithType:UIButtonTypeCustom];
         [_flashButton addTarget:self action:@selector(flashChange:) forControlEvents:UIControlEventTouchUpInside];
         _flashButton.frame = CGRectMake(self.view.sl_width - 34 - 28, [[UIApplication sharedApplication] statusBarFrame].size.height + 14, 28, 24);
-        NSBundle *bundle = [NSBundle bundleForClass:self.class];
+        NSBundle *bundle = SLCameraResourceBundle();
         switch (self.flashType) {
             case 0:
                 [_flashButton setImage:[UIImage imageNamed:@"flash_off" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
@@ -343,17 +354,17 @@
             self.flashType = type;
             switch (weakSelf.avCaptureTool.flashMode) {
                 case AVCaptureFlashModeOff: {
-                    NSBundle *bundle = [NSBundle bundleForClass:weakSelf.class];
+                    NSBundle *bundle = SLCameraResourceBundle();
                     [weakSelf.flashButton setImage:[UIImage imageNamed:@"flash_off" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
                     break;
                 }
                 case AVCaptureFlashModeAuto: {
-                    NSBundle *bundle = [NSBundle bundleForClass:weakSelf.class];
+                    NSBundle *bundle = SLCameraResourceBundle();
                     [weakSelf.flashButton setImage:[UIImage imageNamed:@"flash_auto" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
                     break;
                 }
                 case AVCaptureFlashModeOn: {
-                    NSBundle *bundle = [NSBundle bundleForClass:weakSelf.class];
+                    NSBundle *bundle = SLCameraResourceBundle();
                     [weakSelf.flashButton setImage:[UIImage imageNamed:@"flash_on" inBundle:bundle compatibleWithTraitCollection:nil] forState:UIControlStateNormal];
                     break;
                 }
