@@ -274,6 +274,15 @@
     }
     _preview = preview;
 }
+- (void)updatePreviewFrame {
+    if (_preview != nil && _previewLayer != nil) {
+        // 关闭隐式动画，避免朝向变化时预览层缩放抽动
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        _previewLayer.frame = _preview.bounds;
+        [CATransaction commit];
+    }
+}
 - (void)setVideoZoomFactor:(CGFloat)videoZoomFactor {
     NSError *error = nil;
     if (videoZoomFactor <= self.maxZoomFactor &&

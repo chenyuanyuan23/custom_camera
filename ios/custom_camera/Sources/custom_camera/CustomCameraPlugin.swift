@@ -32,7 +32,10 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
             cameraVC.sourceType = sourceType
             cameraVC.faceType = faceType
             cameraVC.appType = appType ?? 0
-            cameraVC.modalPresentationStyle = .overFullScreen
+            // 用 .fullScreen 而非 .overFullScreen：让相机 VC 成为界面朝向归属者，
+            // 配合其 supportedInterfaceOrientations=Portrait，iOS 才会在 present 时强制旋到竖屏，
+            // 否则横屏进入会跑版（iOS 18 上 .overFullScreen 不触发朝向重算）。#21580
+            cameraVC.modalPresentationStyle = .fullScreen
             cameraVC.flashType = flashType ?? 0
             cameraVC.themeColor = themeColor ?? "#FF92C6"
             

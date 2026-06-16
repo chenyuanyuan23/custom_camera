@@ -60,6 +60,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// 摄像头初始化状态
 @property (nonatomic, assign) BOOL isIniting;
 
+/// 同步预览层(previewLayer) frame 到 preview 视图当前 bounds，朝向/尺寸变化后调用
+- (void)updatePreviewFrame;
 ///启动捕获
 - (void)startRunning;
 ///结束捕获

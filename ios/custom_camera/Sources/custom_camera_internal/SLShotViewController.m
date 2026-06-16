@@ -101,6 +101,36 @@ static NSBundle *SLCameraResourceBundle(void) {
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
     return UIInterfaceOrientationPortrait;
 }
+// 控件 frame 在 setupUI 里只算一次；若 present 时正处于「横屏→竖屏」强制旋转过程中，
+// setupUI 会用横屏 bounds 算出错误位置（预览高宽反、控件错位），且无回正机会。
+// 这里在每次布局（含旋转完成后）按当前 bounds 重设 frame，保证最终竖屏下正确。#21580
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    CGFloat w = self.view.bounds.size.width;
+    CGFloat h = self.view.bounds.size.height;
+    _captureView.frame = self.view.bounds;
+    [_avCaptureTool updatePreviewFrame]; // 同步预览层 frame，否则预览高宽反/只显示一半
+    _backdropView.frame = self.view.bounds;
+    _backBtn.center = CGPointMake((w / 2 - 104 / 2.0) / 2.0, h - 90);
+    _shotBtn.center = CGPointMake(w / 2.0, h - 90);
+    _switchCameraBtn.center =
+        CGPointMake((w / 2 + 104 / 2.0) + ((w / 2 - 104 / 2.0) / 2), h - 90);
+    CGFloat statusH = [[UIApplication sharedApplication] statusBarFrame].size.height;
+    if (_flashButton) {
+        _flashButton.frame = CGRectMake(w - 34 - 28, statusH + 14, 28, 24);
+    }
+    if (_flashBar) {
+        CGFloat barWidth = 28 * 4 + 36 * 3 + 12 * 2 + 18;
+        _flashBar.frame =
+            CGRectMake(w - barWidth - 22, statusH + (48 - 28 - 14), barWidth, 45);
+    }
+    if (_tipsLabel) {
+        _tipsLabel.frame = CGRectMake((w - 140) / 2.0, _shotBtn.sl_y - 20 - 30, 140, 20);
+    }
+    if (_timeLabel) {
+        _timeLabel.frame = CGRectMake((w - 140) / 2.0, _shotBtn.sl_y - 20 - 30, 140, 20);
+    }
+}
 - (void)dealloc {
     _avCaptureTool.delegate = nil;
     _avCaptureTool = nil;
@@ -146,7 +176,11 @@ static NSBundle *SLCameraResourceBundle(void) {
         _avCaptureTool = [[SLAvCaptureTool alloc] init];
         _avCaptureTool.preview = self.captureView;
         _avCaptureTool.delegate = self;
-        _avCaptureTool.videoSize = CGSizeMake(SL_kScreenWidth*0.8, SL_kScreenHeight*0.8);
+        // 相机锁定竖屏，videoSize 始终用竖屏尺寸(短边为宽/长边为高)，
+        // 避免横屏进入时按横屏尺寸算导致输出高宽反。#21580
+        CGFloat sw = MIN(SL_kScreenWidth, SL_kScreenHeight);
+        CGFloat sh = MAX(SL_kScreenWidth, SL_kScreenHeight);
+        _avCaptureTool.videoSize = CGSizeMake(sw * 0.8, sh * 0.8);
         if (self.faceType == 1) {
             [_avCaptureTool switchsCamera:AVCaptureDevicePositionBack];
         } else {
