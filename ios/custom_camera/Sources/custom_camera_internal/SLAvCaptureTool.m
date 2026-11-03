@@ -378,9 +378,14 @@
     [self.session commitConfiguration];
 }
 //拍照 输出图片
-- (void)outputPhoto {
+- (BOOL)outputPhoto {
     //获得图片输出连接
     AVCaptureConnection * captureConnection = [self.capturePhotoOutput connectionWithMediaType:AVMediaTypeVideo];
+    //没有可用的视频连接时调用拍照，系统会直接抛 NSInvalidArgumentException 闪退
+    if (!self.session.isRunning || self.session.isInterrupted || !captureConnection.isActive || !captureConnection.isEnabled) {
+        NSLog(@"相机当前不可拍照 running: %d, interrupted: %d, active: %d, enabled: %d", self.session.isRunning, self.session.isInterrupted, captureConnection.isActive, captureConnection.isEnabled);
+        return NO;
+    }
     // 设置是否为镜像，前置摄像头采集到的数据本来就是翻转的，这里设置为镜像把画面转回来
     if (self.devicePosition == AVCaptureDevicePositionFront && captureConnection.supportsVideoMirroring) {
         captureConnection.videoMirrored = YES;
@@ -399,6 +404,7 @@
 //        capturePhotoSettings.highResolutionPhotoEnabled = YES; //高分辨率
     capturePhotoSettings.flashMode = _flashMode;  //闪光灯 根据环境亮度自动决定是否打开闪光灯
     [self.capturePhotoOutput capturePhotoWithSettings:capturePhotoSettings delegate:self];
+    return YES;
 }
 //开始录制视频
 - (void)startRecordVideoToOutputFileAtPath:(NSString *)path recordType:(SLAvCaptureType)avCaptureType{

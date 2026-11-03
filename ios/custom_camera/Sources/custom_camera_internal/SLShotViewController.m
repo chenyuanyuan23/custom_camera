@@ -32,6 +32,8 @@ static NSBundle *SLCameraResourceBundle(void) {
 {
     dispatch_source_t _gcdTimer; //计时器
     NSTimeInterval _durationOfVideo;  //录制视频的时长
+    BOOL _didInitialFocus; //是否已按最终尺寸做过初始对焦
+    BOOL _isTakingPhoto; //已触发拍照，防止连按（拍完会停相机，0.25 秒后才关页面）
 }
 
 
@@ -66,7 +68,6 @@ static NSBundle *SLCameraResourceBundle(void) {
     [super viewDidLoad];
     [self setupUI];
     [self.avCaptureTool startRunning];
-    [self focusAtPoint:CGPointMake(SL_kScreenWidth/2.0, SL_kScreenHeight/2.0)];
     //监听设备方向，旋转切换摄像头按钮
     [self.avCaptureTool addObserver:self forKeyPath:@"shootingOrientation" options:NSKeyValueObservingOptionNew context:nil];
 }
@@ -129,6 +130,12 @@ static NSBundle *SLCameraResourceBundle(void) {
     }
     if (_timeLabel) {
         _timeLabel.frame = CGRectMake((w - 140) / 2.0, _shotBtn.sl_y - 20 - 30, 140, 20);
+    }
+    // 初始对焦按视图最终尺寸的中心：iPhone Duo 内屏 viewDidLoad 时 view 仍是外屏尺寸；
+    // 普通机型与原先按屏幕中心一致。
+    if (!_didInitialFocus) {
+        _didInitialFocus = YES;
+        [self focusAtPoint:CGPointMake(w / 2.0, h / 2.0)];
     }
 }
 - (void)dealloc {
@@ -563,12 +570,19 @@ static NSBundle *SLCameraResourceBundle(void) {
 }
 //轻触拍照
 - (void)takePicture:(UITapGestureRecognizer *)tap {
-    if (self.sourceType == 2) {
+    if (self.sourceType == 2 || _isTakingPhoto) {
         return;
     }
+    _isTakingPhoto = YES;
     self.switchCameraBtn.userInteractionEnabled = NO;
     self.backBtn.userInteractionEnabled = NO;
-    [self.avCaptureTool outputPhoto];
+    if (![self.avCaptureTool outputPhoto]) {
+        //这次没拍成，恢复按钮，否则用户会被卡在拍摄页
+        _isTakingPhoto = NO;
+        self.switchCameraBtn.userInteractionEnabled = YES;
+        self.backBtn.userInteractionEnabled = YES;
+        return;
+    }
     NSLog(@"拍照");
 }
 //长按摄像 小视频

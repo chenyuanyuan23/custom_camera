@@ -71,7 +71,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// 切换前/后置摄像头
 - (void)switchsCamera:(AVCaptureDevicePosition)devicePosition;
 /// 输出图片 拍照
-- (void)outputPhoto;
+/// @return 相机当前不可拍（启动中、已停止、被中断或没有可用连接）时返回 NO，且不会有拍照回调
+- (BOOL)outputPhoto;
 /// 开始录制视频  默认输出MP4
 /// @param path 录制的音视频输出路径
 /// @param avRecordType 录制视频类型
