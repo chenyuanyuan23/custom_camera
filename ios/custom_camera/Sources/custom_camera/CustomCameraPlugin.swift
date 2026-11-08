@@ -27,22 +27,25 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
             let flashType = dict["flashType"] as? Int 
             let themeColor = dict["theme_color"] as? NSString
             
-            let cameraVC = SLShotViewController()
+            let cameraVC = PortraitLockShotViewController()
             cameraVC.flutterResult = result
             cameraVC.sourceType = sourceType
             cameraVC.faceType = faceType
             cameraVC.appType = appType ?? 0
-            // 用 .fullScreen 而非 .overFullScreen：让相机 VC 成为界面朝向归属者，
-            // 配合其 supportedInterfaceOrientations=Portrait，iOS 才会在 present 时强制旋到竖屏，
-            // 否则横屏进入会跑版（iOS 18 上 .overFullScreen 不触发朝向重算）。#21580
-            cameraVC.modalPresentationStyle = .fullScreen
+            // 必须 .overFullScreen：.fullScreen 会让下面的 FlutterViewController 走 viewDidDisappear 停帧，
+            // 松手/拍完回到 Flutter 时先露出拍摄前的旧帧（聊天页）再出预览页，表现为闪一下。#28425
+            // 竖屏锁不再靠相机 VC 当朝向归属者（#21580 原做法），改为临时收窄 Flutter 根 VC 的朝向，见 lockFlutterPortrait。
+            cameraVC.modalPresentationStyle = .overFullScreen
             cameraVC.flashType = flashType ?? 0
             cameraVC.themeColor = themeColor ?? "#FF92C6"
             
-            if let anim = animated, anim == 1 {
-                UIApplication.shared.keyWindow!.rootViewController!.present(cameraVC, animated: true)
-            } else {
-                UIApplication.shared.keyWindow!.rootViewController!.present(cameraVC, animated: false)
+            let rootVC = UIApplication.shared.keyWindow!.rootViewController!
+            cameraVC.restoreOrientationMask = CustomCameraPlugin.lockFlutterPortrait(rootVC)
+            let presentAnimated = (animated ?? 0) == 1
+            // FlutterViewController 收到朝向通知后在主队列异步执行 requestGeometryUpdate，
+            // 这里也异步 present，保证先发出转竖请求再弹相机。
+            DispatchQueue.main.async {
+                rootVC.present(cameraVC, animated: presentAnimated)
             }
         } else if (call.method == "destory") {
             if (true == UIApplication.shared.keyWindow?.rootViewController?.presentedViewController?.isKind(of: SLShotViewController.self)) {
@@ -50,5 +53,47 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
             }
         }
     }
-    
+
+    // MARK: - 竖屏锁（#21580 / #28425）
+
+    // Flutter 引擎 SystemChrome.setPreferredOrientations 用的通知（FlutterPlatformPlugin.mm），
+    // FlutterViewController 监听它更新 supportedInterfaceOrientations 并 requestGeometryUpdate。
+    static let flutterOrientationNotification =
+        Notification.Name("io.flutter.plugin.platform.SystemChromeOrientationNotificationName")
+    static let flutterOrientationKey = "io.flutter.plugin.platform.SystemChromeOrientationNotificationKey"
+
+    static func postFlutterOrientation(_ mask: UIInterfaceOrientationMask) {
+        NotificationCenter.default.post(
+            name: flutterOrientationNotification,
+            object: nil,
+            userInfo: [flutterOrientationKey: NSNumber(value: mask.rawValue)])
+    }
+
+    /// .overFullScreen 下朝向由根 FlutterViewController 决定（横屏直播间里它只允许 landscapeRight），
+    /// 相机自身的 supportedInterfaceOrientations 不生效。这里临时把根 VC 收窄为竖屏，
+    /// 返回原 mask，相机关闭后原样还回；根 VC 本来就只允许竖屏时返回 nil 不动。
+    static func lockFlutterPortrait(_ rootVC: UIViewController) -> NSNumber? {
+        guard rootVC is FlutterViewController else { return nil }
+        let saved = rootVC.supportedInterfaceOrientations
+        if saved == .portrait { return nil }
+        postFlutterOrientation(.portrait)
+        return NSNumber(value: saved.rawValue)
+    }
+}
+
+/// 相机关闭（被 dismiss）后把根 FlutterViewController 的朝向还原成弹出前的值。
+class PortraitLockShotViewController: SLShotViewController {
+    var restoreOrientationMask: NSNumber?
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        guard isBeingDismissed, let raw = restoreOrientationMask else { return }
+        restoreOrientationMask = nil
+        // 相机期间 Dart 侧若已自行改过朝向（根 VC 不再是竖屏锁），以 Dart 为准不覆盖。
+        if let root = presentingViewController ?? UIApplication.shared.keyWindow?.rootViewController,
+           root.supportedInterfaceOrientations != .portrait {
+            return
+        }
+        CustomCameraPlugin.postFlutterOrientation(UIInterfaceOrientationMask(rawValue: raw.uintValue))
+    }
 }
