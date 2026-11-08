@@ -41,6 +41,7 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
             
             let rootVC = UIApplication.shared.keyWindow!.rootViewController!
             cameraVC.restoreOrientationMask = CustomCameraPlugin.lockFlutterPortrait(rootVC)
+            cameraVC.startObservingDartOrientation()
             let presentAnimated = (animated ?? 0) == 1
             // FlutterViewController 收到朝向通知后在主队列异步执行 requestGeometryUpdate，
             // 这里也异步 present，保证先发出转竖请求再弹相机。
@@ -56,16 +57,21 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
 
     // MARK: - 竖屏锁（#21580 / #28425）
 
-    // Flutter 引擎 SystemChrome.setPreferredOrientations 用的通知（FlutterPlatformPlugin.mm），
-    // FlutterViewController 监听它更新 supportedInterfaceOrientations 并 requestGeometryUpdate。
+    // Flutter 引擎 SystemChrome.setPreferredOrientations 用的通知，FlutterViewController 监听它
+    // 更新 supportedInterfaceOrientations 并 requestGeometryUpdate。
+    // 注意：这是引擎内部通知名，不是公开 API，依据 Flutter 3.47.x 引擎
+    // shell/platform/darwin/ios/framework/Source/FlutterPlatformPlugin.mm:37-40。升级 Flutter 必须复查这两个字符串。
     static let flutterOrientationNotification =
         Notification.Name("io.flutter.plugin.platform.SystemChromeOrientationNotificationName")
     static let flutterOrientationKey = "io.flutter.plugin.platform.SystemChromeOrientationNotificationKey"
 
+    static let selfPostMarker = NSObject()
+
     static func postFlutterOrientation(_ mask: UIInterfaceOrientationMask) {
+        // object 用自己的标记，便于区分 Dart 侧（引擎 post 时 object 为 nil）发的朝向变更。
         NotificationCenter.default.post(
             name: flutterOrientationNotification,
-            object: nil,
+            object: selfPostMarker,
             userInfo: [flutterOrientationKey: NSNumber(value: mask.rawValue)])
     }
 
@@ -84,16 +90,36 @@ public class CustomCameraPlugin: NSObject, FlutterPlugin {
 /// 相机关闭（被 dismiss）后把根 FlutterViewController 的朝向还原成弹出前的值。
 class PortraitLockShotViewController: SLShotViewController {
     var restoreOrientationMask: NSNumber?
+    private var dartChangedOrientation = false
+    private var orientationObserver: NSObjectProtocol?
+
+    /// 相机期间监听同一引擎朝向通知：不是本插件发的（Dart 调了 setPreferredOrientations）就记下，
+    /// dismiss 后不再还原，以 Dart 的最新设置为准。
+    func startObservingDartOrientation() {
+        guard restoreOrientationMask != nil, orientationObserver == nil else { return }
+        orientationObserver = NotificationCenter.default.addObserver(
+            forName: CustomCameraPlugin.flutterOrientationNotification, object: nil, queue: nil
+        ) { [weak self] note in
+            if (note.object as AnyObject?) !== CustomCameraPlugin.selfPostMarker {
+                self?.dartChangedOrientation = true
+            }
+        }
+    }
+
+    deinit {
+        if let o = orientationObserver { NotificationCenter.default.removeObserver(o) }
+    }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
-        guard isBeingDismissed, let raw = restoreOrientationMask else { return }
-        restoreOrientationMask = nil
-        // 相机期间 Dart 侧若已自行改过朝向（根 VC 不再是竖屏锁），以 Dart 为准不覆盖。
-        if let root = presentingViewController ?? UIApplication.shared.keyWindow?.rootViewController,
-           root.supportedInterfaceOrientations != .portrait {
-            return
+        guard isBeingDismissed else { return }
+        if let o = orientationObserver {
+            NotificationCenter.default.removeObserver(o)
+            orientationObserver = nil
         }
+        guard let raw = restoreOrientationMask else { return }
+        restoreOrientationMask = nil
+        if dartChangedOrientation { return }
         CustomCameraPlugin.postFlutterOrientation(UIInterfaceOrientationMask(rawValue: raw.uintValue))
     }
 }
